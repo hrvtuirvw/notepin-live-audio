@@ -1,0 +1,33 @@
+name: checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python tools/check_public_tree.py
+      - run: pip install -r requirements-bootstrap.txt -r streaming/requirements.txt
+      - run: python -m playwright install --with-deps chromium
+      - run: python -m unittest discover -s . -p 'test_*.py' -v
+      - run: python -m unittest discover -s streaming -p 'test_*.py' -v
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: yes | sdkmanager "platforms;android-35" "build-tools;35.0.0" > /dev/null
+      - working-directory: android
+        run: ./gradlew :app:testDebugUnitTest :app:assembleDebug :app:lintDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: notepin-live-audio-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
